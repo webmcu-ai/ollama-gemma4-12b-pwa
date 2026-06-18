@@ -1142,7 +1142,10 @@ else if (f.type === 'video') {
         myDot.className    = 'my-status-dot checking';
         myText.textContent = 'checking...';
         try {
-            const myResp = await fetch(`${MY_OLLAMA_BASE}/api/tags`, { signal: AbortSignal.timeout(4000) });
+            const myResp = await fetch(`${MY_OLLAMA_BASE}/api/tags`, { 
+                signal: AbortSignal.timeout(4000),
+                targetAddressSpace: 'local' 
+            });
             if (myResp.ok) {
                 myDot.className    = 'my-status-dot online';
                 myText.textContent = 'ollama online';
@@ -1210,7 +1213,8 @@ else if (f.type === 'video') {
                       const myResp = await fetch(`${MY_OLLAMA_BASE}/api/pull`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: myModelName, stream: true })
+                body: JSON.stringify({ name: myModelName, stream: true }),
+                targetAddressSpace: 'local'
             });
 
             if (!myResp.ok) {
@@ -1574,7 +1578,8 @@ const { finalPrompt, images } = await myBuildOllamaPayload(
                     messages: myMessages,
                     stream:   true,
                     options:  { num_ctx: myNumCtx }
-                })
+                }),
+                targetAddressSpace: 'local'
             });
 
             if (!myResp.ok) {
