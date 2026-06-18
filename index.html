@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Local AI — Web Interface</title>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@4.0.0-alpha.1/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-base:       #0d1117;
+            --bg-panel:      #161b22;
+            --bg-input:      #1c2128;
+            --bg-hover:      #21262d;
+            --border:        #30363d;
+            --border-focus:  #58a6ff;
+            --text-primary:  #e6edf3;
+            --text-secondary:#8b949e;
+            --text-muted:    #484f58;
+            --accent-blue:   #58a6ff;
+            --accent-green:  #3fb950;
+            --accent-red:    #f85149;
+            --accent-orange: #d29922;
+            --accent-purple: #bc8cff;
+            --accent-teal:   #39d0d8;
+            --user-color:    #79c0ff;
+            --ai-color:      #56d364;
+            --font-mono:     'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            --font-ui:       -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --radius:        6px;
+            --radius-lg:     10px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            gap: 12px;
+        }
+
+        /* ── Header ── */
+        .my-header {
+            width: 100%; max-width: 860px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 0 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .my-header-title { display: flex; align-items: baseline; gap: 10px; }
+        .my-header-title h1 {
+            font-size: 1.1rem; font-weight: 600;
+            font-family: var(--font-mono); color: var(--text-primary); letter-spacing: -0.02em;
+        }
+        .my-header-title span { font-size: 0.75rem; color: var(--text-secondary); font-family: var(--font-mono); }
+        .my-status-pill {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.75rem; font-family: var(--font-mono);
+            padding: 4px 10px; border-radius: 20px;
+            border: 1px solid var(--border); background: var(--bg-panel);
+            color: var(--text-secondary); cursor: pointer; transition: border-color 0.2s;
+        }
+        .my-status-pill:hover { border-color: var(--border-focus); }
+        .my-status-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--text-muted); transition: background 0.3s;
+        }
+        .my-status-dot.online  { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+        .my-status-dot.offline { background: var(--accent-red); }
+        .my-status-dot.checking { background: var(--accent-orange); animation: my-pulse 1s infinite; }
+        @keyframes my-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        /* ── Setup Panel ── */
+        .my-setup-panel {
+            width: 100%; max-width: 860px;
+            background: var(--bg-panel);
+            border: 1px solid var(--accent-orange);
+            border-radius: var(--radius-lg); overflow: hidden;
+        }
+        .my-setup-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; cursor: pointer;
+            background: rgba(210,153,34,0.08); user-select: none;
+        }
+        .my-setup-header:hover { background: rgba(210,153,34,0.13); }
+        .my-setup-header-left {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.8rem; font-weight: 600;
+            color: var(--accent-orange); font-family: var(--font-mono);
+        }
+        .my-setup-toggle { font-size: 0.7rem; color: var(--text-secondary); }
+        .my-setup-body { padding: 14px 16px; border-top: 1px solid rgba(210,153,34,0.25); display: none; }
+        .my-setup-body.open { display: block; }
+        .my-setup-body p { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
+        .my-setup-steps { display: flex; flex-direction: column; gap: 8px; }
+        .my-setup-step { display: flex; gap: 12px; align-items: flex-start; }
+        .my-step-num {
+            min-width: 22px; height: 22px; border-radius: 50%;
+            background: var(--accent-orange); color: #000;
+            font-size: 0.7rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; margin-top: 1px;
+        }
+        .my-step-text { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; }
+        .my-step-text a { color: var(--accent-blue); text-decoration: none; }
+        .my-step-text a:hover { text-decoration: underline; }
+        .my-code-block {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--bg-base); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 7px 12px; margin-top: 5px;
+            font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent-green);
+        }
+        .my-copy-cmd-btn {
+            margin-left: auto; background: none;
+            border: 1px solid var(--border); color: var(--text-secondary);
+            font-size: 0.7rem; padding: 2px 8px; border-radius: 4px;
+            cursor: pointer; font-family: var(--font-mono);
+        }
+        .my-copy-cmd-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+        /* ── Config Panel ── */
+        .my-config-panel {
+            width: 100%; max-width: 860px;
+            background: var(--bg-panel); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 14px 16px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .my-config-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+        .my-field { display: flex; flex-direction: column; gap: 4px; }
+        .my-field label {
+            font-size: 0.72rem; font-family: var(--font-mono);
+            color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .my-field input[type="text"],
+        .my-field select {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text-primary);
+            font-family: var(--font-mono); font-size: 0.85rem;
+            padding: 7px 10px; transition: border-color 0.15s; outline: none;
+        }
+        .my-field input:focus, .my-field select:focus { border-color: var(--border-focus); }
+        .my-field-grow { flex: 1; min-width: 180px; }
+        .my-field select { cursor: pointer; }
+
+        .my-installed-list {
+            font-size: 0.72rem; color: var(--text-secondary);
+            font-family: var(--font-mono); margin-top: 2px;
+        }
+        .my-installed-list span {
+            display: inline-block; background: var(--bg-hover);
+            border: 1px solid var(--border); border-radius: 4px;
+            padding: 1px 6px; margin: 2px 3px 2px 0;
+            cursor: pointer; transition: border-color 0.15s;
+        }
+        .my-installed-list span:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+        /* ── Buttons ── */
+        .my-btn {
+            padding: 7px 14px; border-radius: var(--radius);
+            border: 1px solid transparent; font-family: var(--font-mono);
+            font-size: 0.8rem; font-weight: 600; cursor: pointer;
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .my-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .my-btn-primary { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); }
+        .my-btn-primary:hover:not(:disabled) { background: #79c0ff; }
+        .my-btn-secondary { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+        .my-btn-secondary:hover:not(:disabled) { border-color: var(--text-secondary); color: var(--text-primary); }
+        .my-btn-danger { background: transparent; color: var(--accent-red); border-color: var(--border); }
+        .my-btn-danger:hover:not(:disabled) { border-color: var(--accent-red); }
+        .my-btn-green { background: transparent; color: var(--accent-green); border-color: var(--border); }
+        .my-btn-green:hover:not(:disabled) { border-color: var(--accent-green); }
+        .my-btn-purple { background: transparent; color: var(--accent-purple); border-color: var(--border); }
+        .my-btn-purple:hover:not(:disabled) { border-color: var(--accent-purple); }
+        .my-btn-sm { padding: 4px 10px; font-size: 0.72rem; }
+
+        /* ── Pull Progress ── */
+        .my-pull-area { display: none; flex-direction: column; gap: 6px; }
+        .my-pull-area.visible { display: flex; }
+        .my-pull-bar-wrap { height: 4px; background: var(--bg-hover); border-radius: 2px; overflow: hidden; }
+        .my-pull-bar { height: 100%; background: var(--accent-blue); border-radius: 2px; width: 0%; transition: width 0.2s; }
+        .my-pull-status { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); }
+
+        /* ── Collapsible sections ── */
+        .my-collapsible-toggle {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.75rem; font-family: var(--font-mono);
+            color: var(--text-secondary); cursor: pointer;
+            user-select: none; padding: 2px 0;
+        }
+        .my-collapsible-toggle:hover { color: var(--text-primary); }
+        .my-collapsible-body { display: none; margin-top: 8px; }
+        .my-collapsible-body.open { display: block; }
+        .my-collapsible-body textarea {
+            width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text-primary);
+            font-family: var(--font-mono); font-size: 0.8rem;
+            padding: 8px 10px; resize: vertical; min-height: 70px;
+            outline: none; transition: border-color 0.15s;
+        }
+        .my-collapsible-body textarea:focus { border-color: var(--border-focus); }
+
+        /* ── Chat ── */
+        .my-chat-wrap {
+            width: 100%; max-width: 860px;
+            background: var(--bg-panel); border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            display: flex; flex-direction: column;
+        }
+        .my-chat-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; border-bottom: 1px solid var(--border);
+        }
+        .my-chat-label {
+            font-family: var(--font-mono); font-size: 0.72rem;
+            color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .my-chat-meta { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
+        .my-chat-box {
+            height: 420px; overflow-y: auto; padding: 16px;
+            display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth;
+        }
+        .my-chat-box::-webkit-scrollbar { width: 6px; }
+        .my-chat-box::-webkit-scrollbar-track { background: transparent; }
+        .my-chat-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .my-msg { display: flex; flex-direction: column; gap: 4px; max-width: 100%; }
+        .my-msg-label {
+            font-family: var(--font-mono); font-size: 0.68rem;
+            text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;
+        }
+        .my-msg.user .my-msg-label { color: var(--user-color); }
+        .my-msg.ai   .my-msg-label { color: var(--ai-color); }
+        .my-msg-text {
+            font-size: 0.88rem; line-height: 1.65;
+            color: var(--text-primary); white-space: pre-wrap; word-break: break-word;
+        }
+        .my-msg.user .my-msg-text {
+            background: rgba(121,192,255,0.07);
+            border-left: 2px solid var(--user-color);
+            padding: 8px 12px; border-radius: 0 var(--radius) var(--radius) 0;
+        }
+        .my-thinking { display: flex; gap: 4px; align-items: center; padding: 8px 0; }
+        .my-thinking span {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: var(--ai-color); opacity: 0.4; animation: my-think 1.2s infinite;
+        }
+        .my-thinking span:nth-child(2) { animation-delay: 0.2s; }
+        .my-thinking span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes my-think { 0%,100%{opacity:0.2;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
+
+        /* ── Attached files preview in chat ── */
+        .my-msg-attachments {
+            display: flex; flex-wrap: wrap; gap: 6px;
+            padding: 6px 12px 2px;
+        }
+        .my-attach-chip {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 0.7rem; font-family: var(--font-mono);
+            padding: 3px 8px; border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+        .my-attach-chip.type-image  { border-color: rgba(188,140,255,0.5); color: var(--accent-purple); background: rgba(188,140,255,0.07); }
+        .my-attach-chip.type-audio  { border-color: rgba(57,208,216,0.5);  color: var(--accent-teal);   background: rgba(57,208,216,0.07); }
+        .my-attach-chip.type-video  { border-color: rgba(248,81,73,0.5);   color: var(--accent-red);    background: rgba(248,81,73,0.07); }
+        .my-attach-chip.type-text   { border-color: rgba(63,185,80,0.5);   color: var(--accent-green);  background: rgba(63,185,80,0.07); }
+        .my-attach-chip img { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; }
+
+        /* ── Input area ── */
+        .my-input-wrap {
+            display: flex; flex-direction: column;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ── File attachment tray ── */
+        .my-attach-tray {
+            display: none; flex-wrap: wrap; gap: 6px;
+            padding: 8px 12px 4px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+        }
+        .my-attach-tray.has-files { display: flex; }
+        .my-tray-chip {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 0.72rem; font-family: var(--font-mono);
+            padding: 4px 8px 4px 6px; border-radius: 5px;
+            border: 1px solid var(--border); cursor: default;
+            max-width: 240px; position: relative;
+        }
+        .my-tray-chip.type-image  { border-color: rgba(188,140,255,0.6); color: var(--accent-purple); background: rgba(188,140,255,0.08); }
+        .my-tray-chip.type-audio  { border-color: rgba(57,208,216,0.6);  color: var(--accent-teal);   background: rgba(57,208,216,0.08); }
+        .my-tray-chip.type-video  { border-color: rgba(248,81,73,0.6);   color: var(--accent-red);    background: rgba(248,81,73,0.08); }
+        .my-tray-chip.type-text   { border-color: rgba(63,185,80,0.6);   color: var(--accent-green);  background: rgba(63,185,80,0.08); }
+        .my-tray-chip-icon { font-size: 1rem; line-height: 1; flex-shrink: 0; }
+        .my-tray-chip-info { display: flex; flex-direction: column; overflow: hidden; }
+        .my-tray-chip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+        .my-tray-chip-meta { font-size: 0.62rem; opacity: 0.7; }
+        .my-tray-chip-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
+        .my-tray-remove {
+            margin-left: 2px; cursor: pointer; opacity: 0.5; font-size: 0.85rem;
+            line-height: 1; flex-shrink: 0; padding: 0 2px;
+        }
+        .my-tray-remove:hover { opacity: 1; }
+
+        /* ── Drop zone hint ── */
+        .my-input-row {
+            display: flex; gap: 8px; padding: 10px 12px;
+            align-items: flex-end;
+        }
+        .my-input-left { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        .my-input-left textarea {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text-primary);
+            font-family: var(--font-ui); font-size: 0.88rem;
+            padding: 9px 12px; resize: none; min-height: 42px; max-height: 180px;
+            outline: none; transition: border-color 0.15s; line-height: 1.5; width: 100%;
+        }
+        .my-input-left textarea:focus { border-color: var(--border-focus); }
+        .my-input-left textarea::placeholder { color: var(--text-muted); }
+        .my-input-left textarea.drag-over { border-color: var(--accent-teal); background: rgba(57,208,216,0.05); }
+
+        /* ── File attach toolbar ── */
+        .my-file-toolbar {
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .my-file-btn {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 0.68rem; font-family: var(--font-mono);
+            padding: 3px 8px; border-radius: 4px;
+            border: 1px solid var(--border); background: transparent;
+            cursor: pointer; transition: all 0.15s; color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .my-file-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+        .my-file-btn.btn-image:hover  { color: var(--accent-purple); border-color: var(--accent-purple); }
+        .my-file-btn.btn-audio:hover  { color: var(--accent-teal);   border-color: var(--accent-teal); }
+        .my-file-btn.btn-video:hover  { color: var(--accent-red);    border-color: var(--accent-red); }
+        .my-file-btn.btn-text:hover   { color: var(--accent-green);  border-color: var(--accent-green); }
+        .my-file-btn.btn-webcam:hover { color: var(--accent-orange); border-color: var(--accent-orange); }
+        .my-file-hint {
+            font-size: 0.64rem; font-family: var(--font-mono);
+            color: var(--text-muted); margin-left: auto;
+        }
+
+        .my-input-btn-col { display: flex; flex-direction: column; gap: 5px; }
+
+        /* ── Tools Panel ── */
+        .my-tools-panel {
+            width: 100%; max-width: 860px;
+            background: var(--bg-panel); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); overflow: hidden;
+        }
+        .my-tools-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 14px; cursor: pointer; user-select: none;
+            background: var(--bg-panel); border-bottom: 1px solid transparent;
+            transition: background 0.15s;
+        }
+        .my-tools-header:hover { background: var(--bg-hover); }
+        .my-tools-header-left {
+            display: flex; align-items: center; gap: 8px;
+            font-family: var(--font-mono); font-size: 0.75rem;
+            color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .my-tools-body { display: none; padding: 14px 16px; border-top: 1px solid var(--border); }
+        .my-tools-body.open { display: flex; flex-direction: column; gap: 16px; }
+
+        /* ── Send-to section ── */
+        .my-section-label {
+            font-family: var(--font-mono); font-size: 0.68rem;
+            color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.08em; margin-bottom: 6px;
+        }
+        .my-send-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .my-helper-url-input {
+            flex: 1; min-width: 200px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text-primary);
+            font-family: var(--font-mono); font-size: 0.8rem;
+            padding: 5px 9px; outline: none; transition: border-color 0.15s;
+        }
+        .my-helper-url-input:focus { border-color: var(--border-focus); }
+
+        /* ── HTML / Math / Image output tabs ── */
+        .my-tab-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+        .my-tab {
+            padding: 6px 14px; font-family: var(--font-mono); font-size: 0.75rem;
+            cursor: pointer; color: var(--text-secondary); border-bottom: 2px solid transparent;
+            transition: all 0.15s; user-select: none;
+        }
+        .my-tab:hover { color: var(--text-primary); }
+        .my-tab.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+        .my-tab-panel { display: none; }
+        .my-tab-panel.active { display: block; }
+        .my-html-preview {
+            width: 100%; height: 140px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: var(--radius);
+            color: var(--accent-green); font-family: var(--font-mono);
+            font-size: 0.78rem; padding: 8px; resize: vertical; outline: none;
+        }
+        .my-output-box {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 12px; min-height: 60px;
+            font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;
+        }
+        .my-btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+
+        /* ── Empty state ── */
+        .my-empty-state {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 6px; color: var(--text-muted); font-family: var(--font-mono);
+            font-size: 0.8rem; height: 100%; min-height: 150px;
+        }
+        .my-empty-icon { font-size: 2rem; opacity: 0.3; }
+
+        /* ── Footer ── */
+        .my-footer {
+            font-family: var(--font-mono); font-size: 0.68rem;
+            color: var(--text-muted); padding: 8px 0 4px; text-align: center;
+        }
+
+        /* ── Drag overlay ── */
+        .my-drag-overlay {
+            display: none; position: fixed; inset: 0; z-index: 100;
+            background: rgba(57,208,216,0.08);
+            border: 3px dashed var(--accent-teal);
+            pointer-events: none;
+            align-items: center; justify-content: center;
+        }
+        .my-drag-overlay.active { display: flex; }
+        .my-drag-overlay-text {
+            font-family: var(--font-mono); font-size: 1.5rem;
+            color: var(--accent-teal); text-align: center;
+            opacity: 0.9;
+        }
+        /* ── Webcam modal ── */
+        .my-webcam-overlay {
+            display: none; position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,0.82); align-items: center; justify-content: center;
+        }
+        .my-webcam-overlay.active { display: flex; }
+        .my-webcam-modal {
+            background: var(--bg-panel); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 16px; width: 520px; max-width: 96vw;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .my-webcam-title {
+            font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600;
+            color: var(--text-primary); display: flex; justify-content: space-between; align-items: center;
+        }
+        .my-webcam-close {
+            cursor: pointer; font-size: 1.1rem; color: var(--text-secondary); line-height: 1;
+        }
+        .my-webcam-close:hover { color: var(--accent-red); }
+        .my-webcam-video {
+            width: 100%; border-radius: var(--radius); background: #000;
+            border: 1px solid var(--border); aspect-ratio: 4/3; object-fit: cover;
+        }
+        .my-webcam-canvas { display: none; }
+        .my-webcam-mode-row {
+            display: flex; gap: 6px; flex-wrap: wrap;
+        }
+        .my-webcam-status {
+            font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);
+            min-height: 1.2em;
+        }
+        .my-webcam-preview {
+            display: none; width: 100%; border-radius: var(--radius);
+            border: 1px solid var(--border); background: #000;
+            max-height: 220px; object-fit: contain;
+        }
+        .my-webcam-preview.visible { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- Drag overlay -->
+<div class="my-drag-overlay" id="myDragOverlay">
+    <div class="my-drag-overlay-text">📂 Drop files to attach</div>
+</div>
+
+<!-- Header -->
+<div class="my-header">
+    <div class="my-header-title">
+        <h1>ollama-web</h1>
+        <span>local · multimodal · v10</span>
+    </div>
+    <div class="my-status-pill" onclick="window.myCheckOllamaStatus()" title="Click to recheck Ollama connection">
+        <div class="my-status-dot checking" id="myStatusDot"></div>
+        <span id="myStatusText">checking...</span>
+    </div>
+</div>
+
+<!-- Setup Panel -->
+<div class="my-setup-panel">
+    <div class="my-setup-header" onclick="window.myToggleSetup()">
+        <div class="my-setup-header-left">
+            <span>⚠</span>
+            <span>First-time setup — click to expand</span>
+        </div>
+        <span class="my-setup-toggle" id="mySetupToggleLabel">▼ show</span>
+    </div>
+    <div class="my-setup-body" id="mySetupBody">
+        <p>Ollama must be installed and running locally. This page calls <code style="color:var(--accent-green)">localhost:11434</code> directly from your browser.</p>
+        <div class="my-setup-steps">
+            <div class="my-setup-step">
+                <div class="my-step-num">1</div>
+                <div class="my-step-text">
+                    Download and install Ollama from <a href="https://ollama.com" target="_blank">ollama.com</a>
+                </div>
+            </div>
+            <div class="my-setup-step">
+                <div class="my-step-num">2</div>
+                <div class="my-step-text">
+                    Allow browser access. On <strong>Windows</strong>, open a command prompt and run:
+                    <div class="my-code-block">
+                        <span>setx OLLAMA_ORIGINS "null"</span>
+                        <button class="my-copy-cmd-btn" onclick="window.myCopySetupCmd(this, 'setx OLLAMA_ORIGINS &quot;null&quot;')">copy</button>
+                    </div>
+                    This is the safest setting — it allows this local HTML file to reach Ollama but blocks all internet pages from doing so.
+                    On Mac/Linux, add <code style="color:var(--accent-green)">OLLAMA_ORIGINS="null"</code> to your shell profile instead.
+                </div>
+            </div>
+            <div class="my-setup-step">
+                <div class="my-step-num" style="background:var(--accent-purple);">2b</div>
+                <div class="my-step-text">
+                    <strong style="color:var(--accent-purple);">If you install this page as a Chrome PWA</strong> (three-dot menu → Install), do this extra step — skip it if you are using the plain HTML file only.<br><br>
+                    After installing the PWA, open it, then open DevTools (<code style="color:var(--accent-green)">F12</code>) → Console tab → type <code style="color:var(--accent-green)">location.origin</code> and press Enter.
+                    You will see a string like <code style="color:var(--accent-purple)">chrome-extension://abcdef1234...</code> — copy that full value.<br><br>
+                    Then run this in a command prompt, replacing the example ID with your real one:
+                    <div class="my-code-block" style="flex-wrap:wrap; gap:4px;">
+                        <span style="word-break:break-all;">setx OLLAMA_ORIGINS "null chrome-extension://YOUR-ID-HERE"</span>
+                        <button class="my-copy-cmd-btn" onclick="window.myCopySetupCmd(this, 'setx OLLAMA_ORIGINS &quot;null chrome-extension://YOUR-ID-HERE&quot;')">copy</button>
+                    </div>
+                    <span style="color:var(--text-muted); font-size:0.75rem;">
+                        Note: this page cannot read its own PWA origin automatically until it is running as an installed PWA —
+                        the value shown below will say <em>null</em> while you are using the plain HTML file, which is correct.
+                        Once installed as a PWA the real ID will appear and you can copy it from here instead of DevTools.<br>
+                        Your current page origin: <strong id="myPageOrigin" style="color:var(--accent-purple);">—</strong>
+                        <button class="my-copy-cmd-btn" style="margin-left:8px;" onclick="window.myCopySetupCmd(this, document.getElementById('myPageOrigin').textContent)">copy</button>
+                    </span>
+                </div>
+            </div>
+            <div class="my-setup-step">
+                <div class="my-step-num">3</div>
+                <div class="my-step-text">
+                    <strong style="color: var(--accent-orange);">Reboot your computer.</strong> The environment variable does not take effect until after a full restart.
+                </div>
+            </div>
+            <div class="my-setup-step">
+                <div class="my-step-num">4</div>
+                <div class="my-step-text">Start Ollama (system tray on Windows). Return here — the status pill top-right will turn green when connected.</div>
+            </div>
+            <div class="my-setup-step">
+                <div class="my-step-num">5</div>
+                <div class="my-step-text">
+                    Pull a model using the field below, or run this in a terminal:
+                    <div class="my-code-block">
+                        <span>ollama pull gemma4:12b</span>
+                        <button class="my-copy-cmd-btn" onclick="window.myCopySetupCmd(this, 'ollama pull gemma4:12b')">copy</button>
+                    </div>
+                    Note: Ollama model tags use size shorthand — <code style="color:var(--accent-green)">gemma4:2b</code>, <code style="color:var(--accent-green)">gemma4:12b</code> (not e2b/e4b).
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Model Config Panel -->
+<div class="my-config-panel">
+
+    <!-- Row 1: model name + context window + pull button -->
+    <div class="my-config-row">
+        <div class="my-field my-field-grow">
+            <label for="myModelInput">Model</label>
+            <input type="text" id="myModelInput" value="gemma4:12b"
+                   placeholder="e.g. gemma4:12b, llama3:8b, mistral"
+                   oninput="window.mySaveConfig(); myUpdatePullBtn()" />
+        </div>
+        <div class="my-field">
+            <label for="myCtxSelect">Context Window</label>
+            <select id="myCtxSelect" onchange="window.mySaveConfig()" title="Larger contexts use significantly more VRAM. Ollama defaults to 2048 if not set.">
+                <option value="2048">2K  (default)</option>
+                <option value="4096">4K</option>
+                <option value="8192">8K</option>
+                <option value="16384">16K</option>
+                <option value="32768">32K</option>
+                <option value="65536">65K</option>
+                <option value="131072">128K</option>
+                <option value="262144" selected>256K (gemma4 max)</option>
+            </select>
+        </div>
+        <button class="my-btn my-btn-green" onclick="window.myPullModel()" id="myPullBtn" title="Download the model named above via Ollama">
+            ↓ Pull Model
+        </button>
+    </div>
+
+    <!-- Installed models (auto-populated) -->
+    <div id="myInstalledList" class="my-installed-list" style="display:none;"></div>
+
+    <!-- Pull progress -->
+    <div class="my-pull-area" id="myPullArea">
+        <div class="my-pull-bar-wrap"><div class="my-pull-bar" id="myPullBar"></div></div>
+        <div class="my-pull-status" id="myPullStatus">Preparing...</div>
+    </div>
+
+    <!-- System prompt (collapsible) -->
+    <div>
+        <div class="my-collapsible-toggle" onclick="window.myToggleSysPrompt()">
+            <span id="mySyspromptArrow">▶</span>
+            <span>System Prompt</span>
+            <span style="color:var(--text-muted); font-size:0.68rem; margin-left:4px;">(optional — sent as first message every conversation)</span>
+        </div>
+        <div class="my-collapsible-body" id="mySyspromptBody">
+            <textarea id="mySysPromptInput"
+                      placeholder="e.g. You are a helpful assistant. Answer concisely."
+                      oninput="window.mySaveConfig()" rows="3">You are a helpful assistant. Answer concisely.</textarea>
+        </div>
+    </div>
+
+    <!-- History row -->
+    <div class="my-config-row" style="justify-content: space-between; align-items:center;">
+        <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary);">
+            History: <span id="myTurnCount">0</span> turns
+            &nbsp;·&nbsp; Active: <span id="myActiveModel">—</span>
+            &nbsp;·&nbsp; ctx: <span id="myActiveCtx">—</span> tokens
+        </div>
+        <div style="display:flex; gap:6px;">
+            <button class="my-btn my-btn-secondary my-btn-sm"
+                    onclick="window.myResetPrompt()"
+                    title="Load a meta-prompting template into the input box">↺ Prompt Reset</button>
+            <button class="my-btn my-btn-danger my-btn-sm" onclick="window.myClearHistory()">✕ Clear History</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chat Window -->
+
+
+
+
+<div class="my-chat-wrap">
+    <div class="my-chat-toolbar">
+        <span class="my-chat-label">conversation</span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span id="myTimerDisplay" style="font-family: var(--font-mono); font-size: 0.68rem; color: #00ff41; text-shadow: 0 0 6px #00ff41; display: none;"></span>
+            <label style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="myAutoScrollCheck" checked /> Auto-Scroll
+            </label>
+            <span class="my-chat-meta" id="myContextNote"></span>
+        </div>
+    </div>
+    <div class="my-chat-box" id="myChatBox">
+
+
+        <div class="my-empty-state" id="myEmptyState">
+            <div class="my-empty-icon">◎</div>
+            <div>No messages yet</div>
+            <div style="color: var(--text-muted); font-size:0.68rem;">Verify Ollama is running, then type or attach files below</div>
+        </div>
+    </div>
+
+    <!-- Attachment tray (shows loaded files) -->
+    <div class="my-attach-tray" id="myAttachTray"></div>
+
+    <!-- Input area -->
+    <div class="my-input-wrap">
+        <div class="my-input-row">
+            <div class="my-input-left">
+                <!-- File type buttons -->
+                <div class="my-file-toolbar">
+                    <button class="my-file-btn btn-image" title="Attach image (jpg, png, gif, webp, svg)" onclick="window.myPickFile('image')">
+                        🖼 Image
+                    </button>
+                    <button class="my-file-btn btn-audio" title="Attach audio (wav, mp3, ogg, m4a, flac)" onclick="window.myPickFile('audio')">
+                        🎵 Audio
+                    </button>
+                    <button class="my-file-btn btn-video" title="Attach video — frames extracted as images" onclick="window.myPickFile('video')">
+                        🎬 Video
+                    </button>
+                    <button class="my-file-btn btn-text" title="Attach text file (txt, md, csv, json, py, js, html, xml, etc.)" onclick="window.myPickFile('text')">
+                        📄 Text/Code
+                    </button>
+                    <button class="my-file-btn btn-webcam" title="Capture from webcam / microphone" onclick="window.myOpenWebcam()">
+                        📷 Webcam
+                    </button>
+                    <!-- Hidden file inputs -->
+                    <input type="file" id="myFileImage" style="display:none" multiple
+                           accept="image/*,.svg"
+                           onchange="window.myHandleFiles(this.files)" />
+                    <input type="file" id="myFileAudio" style="display:none" multiple
+                           accept="audio/*,.wav,.mp3,.ogg,.m4a,.flac,.aac"
+                           onchange="window.myHandleFiles(this.files)" />
+                    <input type="file" id="myFileVideo" style="display:none" multiple
+                           accept="video/*,.mp4,.webm,.mov,.avi,.mkv"
+                           onchange="window.myHandleFiles(this.files)" />
+                    <input type="file" id="myFileText" style="display:none" multiple
+                           accept=".txt,.md,.markdown,.csv,.json,.jsonl,.xml,.html,.htm,.css,.js,.ts,.jsx,.tsx,.py,.rb,.rs,.go,.java,.c,.cpp,.h,.hpp,.sh,.yaml,.yml,.toml,.ini,.cfg,.log,.sql"
+                           onchange="window.myHandleFiles(this.files)" />
+                    <span class="my-file-hint">or drag &amp; drop files anywhere</span>
+                </div>
+                <textarea id="myUserInput" placeholder="Message Ollama… (Enter to send, Shift+Enter for newline)" rows="1"
+                          onkeydown="window.myHandleKey(event)"
+                          oninput="window.myAutoResize(this)"></textarea>
+            </div>
+            <div class="my-input-btn-col">
+                <button class="my-btn my-btn-primary" id="mySendBtn" onclick="window.mySendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tools Panel -->
+<div class="my-tools-panel">
+    <div class="my-tools-header" onclick="window.myToggleTools()">
+        <div class="my-tools-header-left">
+            <span>⚙</span>
+            <span>Output Tools</span>
+        </div>
+        <span class="my-setup-toggle" id="myToolsToggleLabel">▼ show</span>
+    </div>
+    <div class="my-tools-body" id="myToolsBody">
+
+        <!-- Send to other LLM -->
+        <div>
+            <div class="my-section-label">Send last response to another AI (copies text, opens tab)</div>
+            <div class="my-send-row">
+                <input type="text" class="my-helper-url-input" id="myHelperUrlInput"
+                       value="https://gemini.google.com/app"
+                       placeholder="Custom URL"
+                       oninput="window.mySaveConfig()"
+                       title="Paste a custom AI chat URL here" />
+                <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myHandleAction('custom')">→ Custom URL</button>
+                <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myHandleAction('https://gemini.google.com/app')">Gemini</button>
+                <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myHandleAction('https://chatgpt.com/')">ChatGPT</button>
+                <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myHandleAction('https://claude.ai/new')">Claude</button>
+            </div>
+            <div style="font-size:0.68rem; color:var(--text-muted); font-family:var(--font-mono); margin-top:5px;">
+                Tip: select specific text in the chat first to send only that; otherwise the full last response is copied.
+            </div>
+        </div>
+
+        <!-- Tabs: HTML / Math / Image -->
+        <div>
+            <div class="my-tab-row">
+                <div class="my-tab active" onclick="window.myShowTab('html', this)">HTML Extractor</div>
+                <div class="my-tab" onclick="window.myShowTab('math', this)">Math Renderer</div>
+                <div class="my-tab" onclick="window.myShowTab('image', this)">Image / SVG</div>
+            </div>
+
+            <!-- HTML tab -->
+            <div class="my-tab-panel active" id="myTabHtml">
+                <div class="my-btn-row">
+                    <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myExtractHtml()">Extract HTML</button>
+                    <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myRenderHtml()">Render in New Tab</button>
+                    <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myCopyHtml()">Copy Code</button>
+                </div>
+                <textarea class="my-html-preview" id="myHtmlPreview" placeholder="HTML extracted from the last AI response will appear here..."></textarea>
+            </div>
+
+            <!-- Math tab -->
+            <div class="my-tab-panel" id="myTabMath">
+                <div class="my-btn-row">
+                    <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myRenderMath()">Render Math</button>
+                </div>
+                <div class="my-output-box" id="myMathOutput">MathJax rendered output will appear here...</div>
+            </div>
+
+            <!-- Image tab -->
+            <div class="my-tab-panel" id="myTabImage">
+                <div class="my-btn-row">
+                    <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myExtractImage()">Extract Image / SVG</button>
+                </div>
+                <div class="my-output-box" id="myImageOutput">SVG or base64 image from the last response will appear here...</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="my-footer">
+    ollama-web.html · all inference runs locally · no data leaves your machine
+</div>
+
+<!-- Webcam Modal -->
+<div class="my-webcam-overlay" id="myWebcamOverlay">
+    <div class="my-webcam-modal">
+        <div class="my-webcam-title">
+            <span>📷 Capture from Webcam / Mic</span>
+            <span class="my-webcam-close" onclick="window.myCloseWebcam()">✕</span>
+        </div>
+        <div class="my-webcam-mode-row">
+            <button class="my-btn my-btn-secondary my-btn-sm" id="myWcModePhoto" onclick="window.myWcSetMode('photo')">📷 Photo</button>
+            <button class="my-btn my-btn-secondary my-btn-sm" id="myWcModeVideo" onclick="window.myWcSetMode('video')">🎬 Video Clip</button>
+            <button class="my-btn my-btn-secondary my-btn-sm" id="myWcModeAudio" onclick="window.myWcSetMode('audio')">🎵 Audio Clip</button>
+        </div>
+        <video class="my-webcam-video" id="myWcVideo" autoplay muted playsinline></video>
+        <canvas class="my-webcam-canvas" id="myWcCanvas"></canvas>
+        <img class="my-webcam-preview" id="myWcPreview" alt="capture preview" />
+        <div class="my-webcam-status" id="myWcStatus">Select a mode above, then click Capture.</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="my-btn my-btn-primary my-btn-sm" id="myWcCaptureBtn" onclick="window.myWcCapture()">⏺ Capture</button>
+            <button class="my-btn my-btn-green my-btn-sm" id="myWcAttachBtn" onclick="window.myWcAttach()" style="display:none;">✓ Attach &amp; Close</button>
+            <button class="my-btn my-btn-secondary my-btn-sm" onclick="window.myCloseWebcam()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ── Constants ──────────────────────────────────────────────────────
+    const MY_STORAGE_KEY   = 'ollamaWeb03Config';
+    const MY_OLLAMA_BASE   = 'http://localhost:11434';
+    const MY_DEFAULT_MODEL = 'gemma4:12b';
+
+
+
+// ── State ──────────────────────────────────────────────────────────
+    let myConversationHistory   = [];
+    let myLastAssistantResponse = '';
+    let myIsGenerating          = false;
+    let myCurrentAbortController = null; // Track generation abort status
+
+    // Pending attachments: array of { type, name, size, dataUrl, base64, mimeType, textContent, thumb }
+    let myPendingFiles = [];
+
+
+
+
+
+
+    // ── File type classification ───────────────────────────────────────
+    const myClassifyFile = (file) => {
+        const mime = file.type || '';
+        const name = file.name.toLowerCase();
+        if (mime.startsWith('image/') || name.match(/\.(svg|webp|avif)$/)) return 'image';
+        if (mime.startsWith('audio/') || name.match(/\.(mp3|wav|ogg|m4a|flac|aac)$/)) return 'audio';
+        if (mime.startsWith('video/') || name.match(/\.(mp4|webm|mov|avi|mkv|m4v)$/)) return 'video';
+        return 'text';
+    };
+
+    const myTypeIcon = { image: '🖼', audio: '🎵', video: '🎬', text: '📄' };
+    const myTypeLabel = { image: 'IMAGE', audio: 'AUDIO', video: 'VIDEO', text: 'TEXT' };
+
+    const myFormatSize = (bytes) => {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+        return (bytes/1048576).toFixed(1) + ' MB';
+    };
+
+    // ── File picking ───────────────────────────────────────────────────
+    window.myPickFile = (kind) => {
+        const ids = { image: 'myFileImage', audio: 'myFileAudio', video: 'myFileVideo', text: 'myFileText' };
+        const el = document.getElementById(ids[kind]);
+        el.value = '';   // allow re-picking same file
+        el.click();
+    };
+
+    // ── Handle dropped / picked files ─────────────────────────────────
+    window.myHandleFiles = async (fileList) => {
+        const files = Array.from(fileList);
+        for (const file of files) {
+            await myLoadFile(file);
+        }
+        myRenderTray();
+    };
+
+    const myLoadFile = (file) => new Promise((resolve) => {
+        const type = myClassifyFile(file);
+        const reader = new FileReader();
+
+        reader.onload = (ev) => {
+            const dataUrl = ev.target.result;
+            // base64 portion only (strip data:...;base64,)
+            const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+            const entry = {
+                type, name: file.name, size: file.size,
+                mimeType: file.type || 'application/octet-stream',
+                dataUrl, base64, textContent: null, thumb: null
+            };
+
+            if (type === 'image') {
+                entry.thumb = dataUrl;  // use full dataUrl as thumbnail
+            } else if (type === 'text') {
+                // Also store as plain text for injection into prompt
+                const tr = new FileReader();
+                tr.onload = (e2) => { entry.textContent = e2.target.result; resolve(entry); myPendingFiles.push(entry); myRenderTray(); };
+                tr.readAsText(file, 'utf-8');
+                return; // resolve happens inside
+            }
+
+            myPendingFiles.push(entry);
+            myRenderTray();
+            resolve(entry);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // ── Render the attachment tray ─────────────────────────────────────
+    const myRenderTray = () => {
+        const tray = document.getElementById('myAttachTray');
+        if (myPendingFiles.length === 0) {
+            tray.innerHTML = '';
+            tray.classList.remove('has-files');
+            return;
+        }
+        tray.classList.add('has-files');
+        tray.innerHTML = myPendingFiles.map((f, i) => `
+            <div class="my-tray-chip type-${f.type}" title="${f.name} (${myFormatSize(f.size)})">
+                ${f.thumb
+                    ? `<img class="my-tray-chip-thumb" src="${f.thumb}" alt="${f.name}">`
+                    : `<span class="my-tray-chip-icon">${myTypeIcon[f.type]}</span>`
+                }
+                <div class="my-tray-chip-info">
+                    <span class="my-tray-chip-name">${f.name}</span>
+                    <span class="my-tray-chip-meta">${myTypeLabel[f.type]} · ${myFormatSize(f.size)}</span>
+                </div>
+                <span class="my-tray-remove" onclick="window.myRemoveFile(${i})" title="Remove">✕</span>
+            </div>
+        `).join('');
+    };
+
+    window.myRemoveFile = (idx) => {
+        myPendingFiles.splice(idx, 1);
+        myRenderTray();
+    };
+
+    // ── Drag & drop on the whole page ─────────────────────────────────
+    let myDragCounter = 0;
+    document.addEventListener('dragenter', (e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+            myDragCounter++;
+            document.getElementById('myDragOverlay').classList.add('active');
+        }
+    });
+    document.addEventListener('dragleave', () => {
+        myDragCounter--;
+        if (myDragCounter <= 0) { myDragCounter = 0; document.getElementById('myDragOverlay').classList.remove('active'); }
+    });
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        myDragCounter = 0;
+        document.getElementById('myDragOverlay').classList.remove('active');
+        if (e.dataTransfer.files.length) {
+            await window.myHandleFiles(e.dataTransfer.files);
+        }
+    });
+
+    // ── Build the images array Ollama expects ─────────────────────────
+    // Ollama: images field = array of base64 strings (for image + audio)
+    // Text files: injected as context in the prompt text
+    // Video: we extract a few frames as images
+    const myBuildOllamaPayload = async (promptText) => {
+        const images = [];
+        let textContext = '';
+
+
+
+
+
+for (const f of myPendingFiles) {
+    if (f.type === 'image') {
+        // Images go directly into the images array
+        images.push(f.base64);
+
+
+
+
+} else if (f.type === 'audio') {
+    // Send raw WAV base64 — Ollama may route this to gemma4's native audio pathway
+    images.push(f.base64);
+    
+    // Also render waveform PNG as fallback for the vision pathway
+    try {
+        const myAudioCtx2 = new (window.AudioContext || window.webkitAudioContext)();
+        const myRawBuf = Uint8Array.from(atob(f.base64), c => c.charCodeAt(0)).buffer;
+        const myAudioBuf = await myAudioCtx2.decodeAudioData(myRawBuf);
+        const myWaveData = myAudioBuf.getChannelData(0);
+        myAudioCtx2.close();
+        const myDurSec = myAudioBuf.duration.toFixed(1);
+
+        const myWcv = document.createElement('canvas');
+        myWcv.width = 800; myWcv.height = 200;
+        const myWctx = myWcv.getContext('2d');
+        myWctx.fillStyle = '#0d1117';
+        myWctx.fillRect(0, 0, myWcv.width, myWcv.height);
+        myWctx.strokeStyle = '#3fb950';
+        myWctx.lineWidth = 1;
+        myWctx.beginPath();
+        const myStep = Math.ceil(myWaveData.length / myWcv.width);
+        for (let myX = 0; myX < myWcv.width; myX++) {
+            let myMin = 1, myMax = -1;
+            for (let myS = 0; myS < myStep; myS++) {
+                const myVal = myWaveData[myX * myStep + myS] || 0;
+                if (myVal < myMin) myMin = myVal;
+                if (myVal > myMax) myMax = myVal;
+            }
+            myWctx.moveTo(myX, (1 + myMin) * myWcv.height / 2);
+            myWctx.lineTo(myX, (1 + myMax) * myWcv.height / 2);
+        }
+        myWctx.stroke();
+        myWctx.fillStyle = '#8b949e';
+        myWctx.font = '11px monospace';
+        myWctx.fillText(`Audio waveform: ${f.name}  |  ${myDurSec}s  |  ${myAudioBuf.sampleRate}Hz  |  ${myAudioBuf.numberOfChannels}ch`, 8, 14);
+        images.push(myWcv.toDataURL('image/png').split(',')[1]);
+
+        textContext += `\n\n[Audio file: "${f.name}" — ${myDurSec}s, ${myAudioBuf.sampleRate}Hz, ${myAudioBuf.numberOfChannels}ch. Raw audio and waveform image both attached. Please transcribe any speech to text, then describe what you hear.]`;
+    } catch (myAudioErr) {
+        textContext += `\n\n[Audio file: "${f.name}" — raw audio attached. Please transcribe any speech to text.]`;
+    }
+}
+
+
+
+
+
+
+
+
+else if (f.type === 'video') {
+
+                // Extract frames from video using canvas
+                const frames = await myExtractVideoFrames(f.dataUrl, 4);
+                frames.forEach(fb64 => images.push(fb64));
+            } else if (f.type === 'text') {
+                // Text/code injected into the prompt
+                const ext = f.name.split('.').pop().toUpperCase();
+                textContext += `\n\n--- FILE: ${f.name} (${ext}) ---\n${f.textContent}\n--- END FILE ---`;
+            }
+        }
+
+        const finalPrompt = textContext
+            ? `${promptText}\n${textContext}`
+            : promptText;
+
+        return { finalPrompt, images };
+    };
+
+    // ── Video frame extraction ─────────────────────────────────────────
+    const myExtractVideoFrames = (dataUrl, count = 4) => new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.src = dataUrl;
+        video.muted = true;
+        video.preload = 'metadata';
+
+        video.onloadedmetadata = async () => {
+            const duration = video.duration;
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const frames = [];
+
+            // sample evenly distributed frames
+            const times = Array.from({ length: count }, (_, i) =>
+                (i / (count - 1)) * Math.min(duration, 60)  // cap at 60s
+            );
+
+            for (const t of times) {
+                await new Promise(res => {
+                    video.currentTime = t;
+                    video.onseeked = () => {
+                        canvas.width  = Math.min(video.videoWidth,  640);
+                        canvas.height = Math.min(video.videoHeight, 360);
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const b64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+                        frames.push(b64);
+                        res();
+                    };
+                });
+            }
+            resolve(frames);
+        };
+        video.onerror = () => resolve([]); // silently fail
+    });
+
+    // ── Config persistence ─────────────────────────────────────────────
+    window.mySaveConfig = () => {
+        const myData = {
+            model:      document.getElementById('myModelInput').value,
+            ctx:        document.getElementById('myCtxSelect').value,
+            sysPrompt:  document.getElementById('mySysPromptInput').value,
+            helperUrl:  document.getElementById('myHelperUrlInput').value,
+            setupOpen:  document.getElementById('mySetupBody').classList.contains('open'),
+            sysOpen:    document.getElementById('mySyspromptBody').classList.contains('open'),
+            toolsOpen:  document.getElementById('myToolsBody').classList.contains('open'),
+        };
+        localStorage.setItem(MY_STORAGE_KEY, JSON.stringify(myData));
+    };
+
+    const myLoadConfig = () => {
+        try {
+            const mySaved = JSON.parse(localStorage.getItem(MY_STORAGE_KEY) || '{}');
+            if (mySaved.model)     document.getElementById('myModelInput').value    = mySaved.model;
+            if (mySaved.ctx)       document.getElementById('myCtxSelect').value     = mySaved.ctx;
+            if (mySaved.sysPrompt) document.getElementById('mySysPromptInput').value = mySaved.sysPrompt;
+            if (mySaved.helperUrl) document.getElementById('myHelperUrlInput').value = mySaved.helperUrl;
+            if (mySaved.setupOpen) {
+                document.getElementById('mySetupBody').classList.add('open');
+                document.getElementById('mySetupToggleLabel').textContent = '▲ hide';
+            }
+            if (mySaved.sysOpen) {
+                document.getElementById('mySyspromptBody').classList.add('open');
+                document.getElementById('mySyspromptArrow').textContent = '▼';
+            }
+            if (mySaved.toolsOpen) {
+                document.getElementById('myToolsBody').classList.add('open');
+                document.getElementById('myToolsToggleLabel').textContent = '▲ hide';
+            }
+        } catch(e) { /* corrupt storage — ignore */ }
+        myUpdateStatusBar();
+    };
+
+    // ── Ollama status + auto-load installed models ─────────────────────
+    window.myCheckOllamaStatus = async () => {
+        const myDot  = document.getElementById('myStatusDot');
+        const myText = document.getElementById('myStatusText');
+        myDot.className    = 'my-status-dot checking';
+        myText.textContent = 'checking...';
+        try {
+            const myResp = await fetch(`${MY_OLLAMA_BASE}/api/tags`, { signal: AbortSignal.timeout(4000) });
+            if (myResp.ok) {
+                myDot.className    = 'my-status-dot online';
+                myText.textContent = 'ollama online';
+                myPopulateInstalledModels(await myResp.json());
+            } else { throw new Error(); }
+        } catch {
+            myDot.className    = 'my-status-dot offline';
+            myText.textContent = 'not detected';
+        }
+    };
+
+    const myPopulateInstalledModels = (myData) => {
+        const myList   = document.getElementById('myInstalledList');
+        const myModels = myData.models || [];
+        if (myModels.length === 0) { myList.style.display = 'none'; return; }
+
+        // Track installed model names for pull button gating
+        window.myInstalledModelNames = new Set(myModels.map(m => m.name));
+        myUpdatePullBtn();
+
+        myList.innerHTML = '<span style="color:var(--text-muted);cursor:default;background:none;border:none;padding:0;">Installed: </span>';
+        myModels.forEach(myM => {
+            const myTag   = document.createElement('span');
+            const mySizeGB = myM.size ? ` · ${(myM.size/1e9).toFixed(1)}GB` : '';
+            myTag.textContent = myM.name;
+            myTag.title = `Click to select${mySizeGB}`;
+            myTag.onclick = () => {
+                document.getElementById('myModelInput').value = myM.name;
+                window.mySaveConfig();
+                myUpdateStatusBar();
+                myUpdatePullBtn();
+            };
+            myList.appendChild(myTag);
+        });
+        myList.style.display = 'block';
+    };
+
+    const myUpdatePullBtn = () => {
+        const myPullBtn = document.getElementById('myPullBtn');
+        const myCurrentModel = document.getElementById('myModelInput').value.trim();
+        const myInstalled = window.myInstalledModelNames || new Set();
+        const myIsLoaded = myInstalled.has(myCurrentModel);
+        myPullBtn.disabled = myIsLoaded;
+        myPullBtn.title = myIsLoaded
+            ? `"${myCurrentModel}" is already installed`
+            : 'Download the model named above via Ollama';
+    };
+
+    // ── Pull model ─────────────────────────────────────────────────────
+    window.myPullModel = async () => {
+        const myModelName = document.getElementById('myModelInput').value.trim();
+        if (!myModelName) return;
+
+        const myPullArea   = document.getElementById('myPullArea');
+        const myPullBar    = document.getElementById('myPullBar');
+        const myPullStatus = document.getElementById('myPullStatus');
+        const myPullBtn    = document.getElementById('myPullBtn');
+
+        myPullArea.classList.add('visible');
+        myPullBtn.disabled = true;
+        myPullStatus.textContent = `Connecting to Ollama to pull "${myModelName}"...`;
+        myPullBar.style.width = '0%';
+
+        try {
+                      const myResp = await fetch(`${MY_OLLAMA_BASE}/api/pull`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: myModelName, stream: true })
+            });
+
+            if (!myResp.ok) {
+                const myErrBody = await myResp.text();
+                throw new Error(`HTTP ${myResp.status}: ${myErrBody}`);
+            }
+
+            const myReader  = myResp.body.getReader();
+            const myDecoder = new TextDecoder();
+            let myDone = false;
+
+            while (!myDone) {
+                const { done, value } = await myReader.read();
+                myDone = done;
+                if (value) {
+                    const myChunks = myDecoder.decode(value).split('\n').filter(Boolean);
+                    for (const myLine of myChunks) {
+                        try {
+                            const myJson = JSON.parse(myLine);
+                            if (myJson.error) throw new Error(myJson.error);
+                            myPullStatus.textContent = myJson.status || 'Working...';
+                            if (myJson.total && myJson.completed) {
+                                myPullBar.style.width = ((myJson.completed / myJson.total) * 100).toFixed(1) + '%';
+                            } else if (!myJson.total) {
+                                myPullBar.style.width = '30%';
+                            }
+                            if (myJson.status === 'success') {
+                                myPullBar.style.width = '100%';
+                                myPullStatus.textContent = `✓ "${myModelName}" ready`;
+                                setTimeout(() => {
+                                    myPullArea.classList.remove('visible');
+                                    window.myCheckOllamaStatus(); // refreshes installed list + pull btn
+                                }, 2500);
+                            }
+                        } catch (myParseErr) {
+                            if (myParseErr.message !== 'Unexpected end of JSON input') {
+                                myPullStatus.textContent = `Error: ${myParseErr.message}`;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (myErr) {
+            myPullStatus.textContent = `✗ Pull failed: ${myErr.message}. Check model name (e.g. gemma4:12b) and that Ollama is running.`;
+            myPullBar.style.background = 'var(--accent-red)';
+            setTimeout(() => { myPullBar.style.background = 'var(--accent-blue)'; }, 3000);
+        } finally {
+            myPullBtn.disabled = false;
+            myUpdatePullBtn(); // re-apply installed-model check
+        }
+    };
+
+    // ── UI helpers ─────────────────────────────────────────────────────
+    window.myToggleSetup = () => {
+        const myBody  = document.getElementById('mySetupBody');
+        const myLabel = document.getElementById('mySetupToggleLabel');
+        myLabel.textContent = myBody.classList.toggle('open') ? '▲ hide' : '▼ show';
+        window.mySaveConfig();
+    };
+
+    window.myToggleSysPrompt = () => {
+        const myBody  = document.getElementById('mySyspromptBody');
+        const myArrow = document.getElementById('mySyspromptArrow');
+        myArrow.textContent = myBody.classList.toggle('open') ? '▼' : '▶';
+        window.mySaveConfig();
+    };
+
+    window.myToggleTools = () => {
+        const myBody  = document.getElementById('myToolsBody');
+        const myLabel = document.getElementById('myToolsToggleLabel');
+        myLabel.textContent = myBody.classList.toggle('open') ? '▲ hide' : '▼ show';
+        window.mySaveConfig();
+    };
+
+    window.myCopySetupCmd = (myBtn, myText) => {
+        navigator.clipboard.writeText(myText).then(() => {
+            const myOrig = myBtn.textContent;
+            myBtn.textContent = 'copied!';
+            setTimeout(() => myBtn.textContent = myOrig, 1500);
+        });
+    };
+
+    window.myAutoResize = (myEl) => {
+        myEl.style.height = 'auto';
+        myEl.style.height = Math.min(myEl.scrollHeight, 180) + 'px';
+    };
+
+    window.myHandleKey = (myEv) => {
+        if (myEv.key === 'Enter' && !myEv.shiftKey) {
+            myEv.preventDefault();
+            window.mySendMessage();
+        }
+    };
+
+    window.myClearHistory = () => {
+        myConversationHistory   = [];
+        myLastAssistantResponse = '';
+        myPendingFiles = [];
+        myRenderTray();
+        document.getElementById('myChatBox').innerHTML =
+            `<div class="my-empty-state" id="myEmptyState">
+                <div class="my-empty-icon">◎</div>
+                <div>No messages yet</div>
+                <div style="color:var(--text-muted);font-size:0.68rem;">Verify Ollama is running, then type or attach files below</div>
+            </div>`;
+        document.getElementById('myHtmlPreview').value = '';
+        document.getElementById('myMathOutput').textContent  = 'MathJax rendered output will appear here...';
+        document.getElementById('myImageOutput').textContent = 'SVG or base64 image from the last response will appear here...';
+        myUpdateTurnCount();
+        myUpdateStatusBar();
+    };
+
+    window.myResetPrompt = () => {
+        const myInput = document.getElementById('myUserInput');
+        myInput.value = 'Answer this question and then after your answer write a prompt for an LLM to better answer this question. The question is: ';
+        myInput.focus();
+        window.myAutoResize(myInput);
+        myInput.setSelectionRange(myInput.value.length, myInput.value.length);
+    };
+
+    const myUpdateStatusBar = () => {
+        document.getElementById('myActiveModel').textContent =
+            document.getElementById('myModelInput').value || '—';
+        const myCtxVal = document.getElementById('myCtxSelect').value;
+        document.getElementById('myActiveCtx').textContent =
+            parseInt(myCtxVal).toLocaleString();
+    };
+
+    const myUpdateTurnCount = () => {
+        const myTurns = Math.floor(myConversationHistory.length / 2);
+        document.getElementById('myTurnCount').textContent = myTurns;
+        document.getElementById('myContextNote').textContent =
+            `${myConversationHistory.length} messages in context`;
+    };
+
+    // ── Tab switching ──────────────────────────────────────────────────
+    window.myShowTab = (myTabId, myTabEl) => {
+        document.querySelectorAll('.my-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.my-tab-panel').forEach(p => p.classList.remove('active'));
+        myTabEl.classList.add('active');
+        document.getElementById('myTab' + myTabId.charAt(0).toUpperCase() + myTabId.slice(1)).classList.add('active');
+    };
+
+    // ── Send to other LLM ──────────────────────────────────────────────
+    window.myHandleAction = async (myTargetUrl) => {
+        let myTextToSend = '';
+        const mySelection = window.getSelection();
+        if (mySelection && mySelection.toString().trim().length > 0) {
+            myTextToSend = mySelection.toString();
+        } else {
+            myTextToSend = myLastAssistantResponse;
+        }
+        try { await navigator.clipboard.writeText(myTextToSend); } catch {}
+        const myFinalUrl = myTargetUrl === 'custom'
+            ? document.getElementById('myHelperUrlInput').value
+            : myTargetUrl;
+        window.open(myFinalUrl, '_blank');
+    };
+
+    // ── HTML extraction ────────────────────────────────────────────────
+    const myExtractHtmlPattern = (myText) => {
+        const myMatch = myText.match(/```html\s*([\s\S]*?)```/i)
+                     || myText.match(/(<(!DOCTYPE|html|head|body|div|section)[^>]*>[\s\S]*<\/(html|body|div|section)>)/i);
+        return myMatch ? (myMatch[1] || myMatch[0]).trim() : myText.trim();
+    };
+
+    window.myExtractHtml = () => {
+        document.getElementById('myHtmlPreview').value = myExtractHtmlPattern(myLastAssistantResponse);
+    };
+
+    window.myRenderHtml = () => {
+        const myContent = document.getElementById('myHtmlPreview').value.trim();
+        if (!myContent) { window.myExtractHtml(); }
+        const myWin = window.open('', 'ollama-render-' + Date.now());
+        myWin.document.write(document.getElementById('myHtmlPreview').value || myContent);
+        myWin.document.close();
+    };
+
+    window.myCopyHtml = () => {
+        const myContent = document.getElementById('myHtmlPreview').value.trim();
+        if (!myContent) return;
+        navigator.clipboard.writeText(myContent).then(() => alert('HTML copied to clipboard.'));
+    };
+
+    // ── Math rendering ─────────────────────────────────────────────────
+    window.myRenderMath = async () => {
+        if (!myLastAssistantResponse) return;
+        const myOut = document.getElementById('myMathOutput');
+        let myClean = myLastAssistantResponse
+            .replace(/^###\s*(.*)$/gm, '<h3>$1</h3>')
+            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+            .replace(/\n/g, '<br>');
+        myOut.innerHTML = myClean;
+        if (window.MathJax) { await MathJax.typesetPromise([myOut]); }
+    };
+
+    // ── Image / SVG extraction ─────────────────────────────────────────
+    window.myExtractImage = () => {
+        const myOut = document.getElementById('myImageOutput');
+        if (!myLastAssistantResponse) return;
+        const mySvgMatch = myLastAssistantResponse.match(/<svg[\s\S]*?<\/svg>/i);
+        if (mySvgMatch) { myOut.innerHTML = mySvgMatch[0]; return; }
+        const myImgMatch = myLastAssistantResponse.match(/src=["'](data:image\/[^"']+)["']/);
+        if (myImgMatch) {
+            myOut.innerHTML = `<img src="${myImgMatch[1]}" style="max-width:100%;max-height:400px;object-fit:contain;" />`;
+            return;
+        }
+        myOut.textContent = 'No SVG or base64 image found in the last response.';
+    };
+
+    // ── URL linkifier ──────────────────────────────────────────────────
+    const myLinkifyText = (myText) =>
+        myEscapeHtml(myText).replace(
+            /(https?:\/\/[^\s<>"']+)/g,
+            '<a href="$1" target="_blank" style="color:var(--accent-blue);text-decoration:none;">$1</a>'
+        );
+
+    const myEscapeHtml = (myStr) =>
+        myStr.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+
+
+
+
+
+// ── Build attachment chips for user message display ────────────────
+    const myBuildAttachChipsHtml = (files) => {
+        if (!files.length) return '';
+        const chips = files.map(f => {
+            const thumb = f.thumb
+                ? `<img src="${f.thumb}" style="width:28px;height:28px;object-fit:cover;border-radius:3px;">`
+                : `<span>${myTypeIcon[f.type]}</span>`;
+            
+            // Replaced the simple span layout wrapper with a clickable anchor viewer trigger
+            return `<span class="my-attach-chip type-${f.type}" title="Open Offline: ${myEscapeHtml(f.name)}" onclick="window.myOpenMediaInNewTab('${myEscapeHtml(f.name)}', '${f.mimeType}', '${f.base64}')" style="cursor: pointer;">${thumb} ${myEscapeHtml(f.name)}</span>`;
+        }).join('');
+        return `<div class="my-msg-attachments">${chips}</div>`;
+    };
+
+
+
+
+
+
+// ── Chat ──────────────────────────────────────────────────────────
+    window.mySendMessage = async () => {
+        const myInputEl = document.getElementById('myUserInput');
+        const mySendBtn = document.getElementById('mySendBtn');
+
+        // IF GENERATING: Act as a Stop button instead
+        if (myIsGenerating) {
+            if (myCurrentAbortController) {
+                myCurrentAbortController.abort();
+            }
+            return;
+        }
+
+        const myPromptText = myInputEl.value.trim();
+
+        // Allow send with only files and no text
+        if (!myPromptText && myPendingFiles.length === 0) return;
+
+        const myModelName = document.getElementById('myModelInput').value.trim() || MY_DEFAULT_MODEL;
+        const mySysPrompt = document.getElementById('mySysPromptInput').value.trim();
+        const myNumCtx    = parseInt(document.getElementById('myCtxSelect').value, 10);
+
+        myIsGenerating = true;
+        myInputEl.value = '';
+        myInputEl.style.height = 'auto';
+        
+        // Toggle button UI to stop mode
+        mySendBtn.textContent = 'Stop';
+        mySendBtn.className = 'my-btn my-btn-danger';
+
+        const myEmpty = document.getElementById('myEmptyState');
+        if (myEmpty) myEmpty.remove();
+
+        const myChatBox = document.getElementById('myChatBox');
+        const myAutoScroll = document.getElementById('myAutoScrollCheck');
+
+
+
+
+// Snapshot the pending files
+    const myFilesThisTurn = [...myPendingFiles];
+
+    // Initialize temporary global container before extracting layout data
+    window.myAudioPayloads = [];
+
+    // Build ollama payload BEFORE clearing array layout
+
+const { finalPrompt, images } = await myBuildOllamaPayload(
+    myPromptText || (myPendingFiles.some(f => f.type === 'audio') 
+        ? 'Please transcribe the speech in this audio to text.'
+        : 'Please analyze the attached file(s).')
+);
+
+
+    // Keep references to audio entries found during payload execution
+    const myTurnAudio = [...window.myAudioPayloads];
+    window.myAudioPayloads = [];
+
+    // Clear tray now that payload parameters are stored safely
+    myPendingFiles = [];
+    myRenderTray();
+
+
+
+
+
+        // User message bubble
+        const myUserDiv = document.createElement('div');
+        myUserDiv.className = 'my-msg user';
+        myUserDiv.innerHTML =
+            myBuildAttachChipsHtml(myFilesThisTurn) +
+            `<div class="my-msg-label">you</div>` +
+            (myPromptText ? `<div class="my-msg-text">${myEscapeHtml(myPromptText)}</div>` : '');
+        myChatBox.appendChild(myUserDiv);
+
+        // Add to conversation history safely checking array values
+        const myHistoryEntry = { role: 'user', content: finalPrompt };
+        if (images && images.length > 0) myHistoryEntry.images = images;
+        myConversationHistory.push(myHistoryEntry);
+
+        // Thinking indicator setup
+        const myThinkDiv = document.createElement('div');
+        myThinkDiv.className = 'my-msg ai';
+        myChatBox.appendChild(myThinkDiv);
+        if (myAutoScroll && myAutoScroll.checked) myChatBox.scrollTop = myChatBox.scrollHeight;
+
+        // Setup background live timing references outside try block scope
+        let mySecondsElapsed = 0;
+        const myToolbarTimer = document.getElementById('myTimerDisplay');
+        myToolbarTimer.textContent = 'thinking… (0s)';
+        myToolbarTimer.style.display = 'inline';
+
+        const myThinkInterval = setInterval(() => {
+            mySecondsElapsed++;
+            myToolbarTimer.textContent = `thinking… (${mySecondsElapsed}s)`;
+        }, 1000);
+
+        // Build message array for API
+        const myMessages = [];
+        if (mySysPrompt) myMessages.push({ role: 'system', content: mySysPrompt });
+        myMessages.push(...myConversationHistory);
+
+        let myFullResponse = '';
+        myCurrentAbortController = new AbortController();
+
+        try {
+            console.log("=== Last message sent to Ollama ===");
+            console.log("Model:", myModelName);
+            console.log(JSON.stringify(myMessages[myMessages.length - 1], null, 2));
+
+            const myResp = await fetch(`${MY_OLLAMA_BASE}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: myCurrentAbortController.signal,
+                body: JSON.stringify({
+                    model:    myModelName,
+                    messages: myMessages,
+                    stream:   true,
+                    options:  { num_ctx: myNumCtx }
+                })
+            });
+
+            if (!myResp.ok) {
+                const myErrText = await myResp.text();
+                throw new Error(myErrText || `HTTP ${myResp.status}`);
+            }
+
+            const myAiTextEl = document.createElement('div');
+            myAiTextEl.className = 'my-msg-text';
+            
+            myThinkDiv.innerHTML = `<div class="my-msg-label">${myEscapeHtml(myModelName)}</div>`;
+            myThinkDiv.appendChild(myAiTextEl);
+
+            const myReader  = myResp.body.getReader();
+            const myDecoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await myReader.read();
+                if (done) break;
+                const myLines = myDecoder.decode(value, { stream: true }).split('\n').filter(Boolean);
+                for (const myLine of myLines) {
+                    try {
+                        const myJson = JSON.parse(myLine);
+                        if (myJson.message?.content) {
+                            myFullResponse += myJson.message.content;
+                            myAiTextEl.innerHTML = myLinkifyText(myFullResponse);
+                            if (myAutoScroll && myAutoScroll.checked) {
+                                myChatBox.scrollTop = myChatBox.scrollHeight;
+                            }
+                        }
+                    } catch { /* partial line chunk data processing */ }
+                }
+            }
+
+        } catch (myErr) {
+            // Verify if error happened due to manual client execution stop action
+            if (myErr.name === 'AbortError') {
+                const myStopNote = document.createElement('div');
+                myStopNote.style.color = 'var(--accent-orange)';
+                myStopNote.style.fontSize = '0.72rem';
+                myStopNote.style.fontFamily = 'var(--font-mono)';
+                myStopNote.style.marginTop = '4px';
+                myStopNote.textContent = '■ Generation stopped by user.';
+                myThinkDiv.appendChild(myStopNote);
+            } else {
+                myThinkDiv.innerHTML = `<div class="my-msg-label" style="color:var(--accent-red)">error</div>
+                    <div class="my-msg-text" style="color:var(--accent-red)">
+                    Could not reach Ollama: ${myEscapeHtml(myErr.message)}<br><br>
+                    • Is Ollama running?<br>
+                    • Was <code>setx OLLAMA_ORIGINS "null"</code> run and the computer rebooted?<br>
+                    • Is the model name correct?<br>
+                    </div>`;
+                myConversationHistory.pop();
+            }
+        } finally {
+            // Unset running timer tracking intervals safely inside clear handler
+            clearInterval(myThinkInterval);
+            myToolbarTimer.textContent = `completed in ${mySecondsElapsed}s`;
+            // Fade out timer after 4 seconds
+            setTimeout(() => { myToolbarTimer.style.display = 'none'; }, 4000);
+
+            if (myFullResponse) {
+                myConversationHistory.push({ role: 'assistant', content: myFullResponse });
+                myLastAssistantResponse = myFullResponse;
+            }
+            
+            myIsGenerating = false;
+            myCurrentAbortController = null;
+            
+            // Revert button UI configuration rules cleanly
+            mySendBtn.textContent = 'Send';
+            mySendBtn.className = 'my-btn my-btn-primary';
+            
+            document.getElementById('myUserInput').focus();
+            myUpdateTurnCount();
+            myUpdateStatusBar();
+            if (myAutoScroll && myAutoScroll.checked) myChatBox.scrollTop = myChatBox.scrollHeight;
+        }
+    };
+
+
+
+
+
+
+
+async function myOpenMediaInNewTab(myFileName, myMimeType, myBase64Data) {
+    // 1. Clean the base64 string if it contains a data URI prefix
+    let myCleanBase64 = myBase64Data;
+    if (myBase64Data.includes(',')) {
+        myCleanBase64 = myBase64Data.split(',')[1];
+    }
+
+    // 2. Convert base64 into raw binary byte arrays
+    const myBinaryString = window.atob(myCleanBase64);
+    const myByteNumbers = new Array(myBinaryString.length);
+    for (let i = 0; i < myBinaryString.length; i++) {
+        myByteNumbers[i] = myBinaryString.charCodeAt(i);
+    }
+    const myByteArray = new Uint8Array(myByteNumbers);
+
+    // 3. Create an offline-safe binary blob with the exact mime type
+    const myBlob = new Blob([myByteArray], { type: myMimeType });
+    const myMediaUrl = URL.createObjectURL(myBlob);
+
+    // 4. Open a clean blank tab 
+    const myNewTab = window.open('', '_blank');
+    if (!myNewTab) {
+        alert('Pop-up blocked! Please allow pop-ups for this local tool.');
+        return;
+    }
+
+    // 5. Determine the presentation structure by identifying the high-level media category
+    let myHtmlInject = '';
+    const myPrimaryType = myMimeType.split('/')[0]; // yields 'image', 'audio', 'video', or 'text'
+
+    if (myPrimaryType === 'image') {
+        myHtmlInject = `<img src="${myMediaUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;" alt="${myFileName}">`;
+    } else if (myPrimaryType === 'video') {
+        myHtmlInject = `<video src="${myMediaUrl}" controls autoplay style="max-width:100%; max-height:100vh; display:block; margin:auto;"></video>`;
+    } else if (myPrimaryType === 'audio') {
+        myHtmlInject = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:70vh;">
+                <p style="font-size:1.2rem; margin-bottom:15px;">🎵 Playing: ${myFileName}</p>
+                <audio src="${myMediaUrl}" controls autoplay style="width:80%; max-width:500px;"></audio>
+            </div>`;
+    } else {
+        // Fallback or text types
+        const myTextContent = await myBlob.text();
+        myHtmlInject = `<pre style="white-space:pre-wrap; font-family:monospace; padding:20px;">${myTextContent}</pre>`;
+    }
+
+    // 6. Output a clean inline-styled HTML wrapper document directly onto the target tab
+    myNewTab.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${myFileName}</title>
+            <style>
+                body {
+                    background-color: #0d1117;
+                    color: #e6edf3;
+                    margin: 0;
+                    padding: 20px;
+                    font-family: sans-serif;
+                }
+                .my-header {
+                    font-size: 0.9rem;
+                    color: #8b949e;
+                    border-bottom: 1px solid #30363d;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="my-header">Offline Viewer | File: <strong>${myFileName}</strong> (${myMimeType})</div>
+            ${myHtmlInject}
+        </body>
+        </html>
+    `);
+    
+    myNewTab.document.close();
+}
+
+
+
+
+
+
+    // ── Webcam / Mic capture ───────────────────────────────────────────
+    let myWcStream = null;
+    let myWcMode   = 'photo';
+    let myWcMediaRecorder = null;
+    let myWcChunks = [];
+    let myWcCapturedBlob = null;
+
+    window.myOpenWebcam = async () => {
+        document.getElementById('myWebcamOverlay').classList.add('active');
+        myWcCapturedBlob = null;
+        document.getElementById('myWcAttachBtn').style.display = 'none';
+        document.getElementById('myWcPreview').classList.remove('visible');
+        document.getElementById('myWcStatus').textContent = 'Select a mode above, then click Capture.';
+        await myWcSetMode('photo');
+    };
+
+    window.myCloseWebcam = () => {
+        document.getElementById('myWebcamOverlay').classList.remove('active');
+        myWcStopStream();
+    };
+
+    const myWcStopStream = () => {
+        if (myWcStream) { myWcStream.getTracks().forEach(t => t.stop()); myWcStream = null; }
+        if (myWcMediaRecorder && myWcMediaRecorder.state !== 'inactive') {
+            myWcMediaRecorder.stop();
+        }
+    };
+
+    window.myWcSetMode = async (mode) => {
+        myWcMode = mode;
+        myWcStopStream();
+        myWcCapturedBlob = null;
+        document.getElementById('myWcAttachBtn').style.display = 'none';
+        document.getElementById('myWcPreview').classList.remove('visible');
+        document.getElementById('myWcCaptureBtn').textContent = mode === 'photo' ? '⏺ Capture Photo'
+            : mode === 'video' ? '⏺ Start Recording' : '⏺ Start Recording';
+
+        const video = document.getElementById('myWcVideo');
+        try {
+            const constraints = mode === 'audio'
+                ? { audio: true, video: false }
+                : { video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: mode === 'video' };
+            myWcStream = await navigator.mediaDevices.getUserMedia(constraints);
+            if (mode !== 'audio') {
+                video.srcObject = myWcStream;
+                video.style.display = 'block';
+            } else {
+                video.style.display = 'none';
+            }
+            document.getElementById('myWcStatus').textContent =
+                mode === 'photo' ? 'Camera ready. Click Capture Photo.'
+                : mode === 'video' ? 'Camera ready. Click Start Recording, then Stop.'
+                : 'Microphone ready. Click Start Recording, then Stop.';
+        } catch (err) {
+            document.getElementById('myWcStatus').textContent = `Camera/mic error: ${err.message}`;
+        }
+    };
+
+    window.myWcCapture = () => {
+        const btn = document.getElementById('myWcCaptureBtn');
+        if (myWcMode === 'photo') {
+            myWcCapturePhoto();
+        } else {
+            // toggle recording
+            if (!myWcMediaRecorder || myWcMediaRecorder.state === 'inactive') {
+                myWcStartRecording();
+                btn.textContent = '⏹ Stop Recording';
+                btn.className = 'my-btn my-btn-danger my-btn-sm';
+            } else {
+                myWcMediaRecorder.stop();
+                btn.textContent = myWcMode === 'video' ? '⏺ Start Recording' : '⏺ Start Recording';
+                btn.className = 'my-btn my-btn-primary my-btn-sm';
+            }
+        }
+    };
+
+    const myWcCapturePhoto = () => {
+        const video  = document.getElementById('myWcVideo');
+        const canvas = document.getElementById('myWcCanvas');
+        canvas.width  = video.videoWidth  || 640;
+        canvas.height = video.videoHeight || 480;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        canvas.toBlob(blob => {
+            myWcCapturedBlob = blob;
+            const url = URL.createObjectURL(blob);
+            const preview = document.getElementById('myWcPreview');
+            preview.src = url;
+            preview.classList.add('visible');
+            document.getElementById('myWcAttachBtn').style.display = 'inline-block';
+            document.getElementById('myWcStatus').textContent = 'Photo captured. Click Attach & Close to add it.';
+        }, 'image/jpeg', 0.92);
+    };
+
+    const myWcStartRecording = () => {
+        myWcChunks = [];
+        const mimeType = myWcMode === 'audio'
+            ? (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg')
+            : (MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm');
+        myWcMediaRecorder = new MediaRecorder(myWcStream, { mimeType });
+        myWcMediaRecorder.ondataavailable = e => { if (e.data.size > 0) myWcChunks.push(e.data); };
+        myWcMediaRecorder.onstop = () => {
+            const blob = new Blob(myWcChunks, { type: mimeType });
+            myWcCapturedBlob = blob;
+            if (myWcMode === 'video') {
+                const url = URL.createObjectURL(blob);
+                const preview = document.getElementById('myWcPreview');
+                preview.src = url;
+                preview.classList.add('visible');
+            }
+            document.getElementById('myWcAttachBtn').style.display = 'inline-block';
+            document.getElementById('myWcStatus').textContent =
+                `${myWcMode === 'audio' ? 'Audio' : 'Video'} recorded (${(myWcCapturedBlob.size/1024).toFixed(0)} KB). Click Attach & Close.`;
+        };
+        myWcMediaRecorder.start();
+        document.getElementById('myWcStatus').textContent = 'Recording… click Stop Recording when done.';
+    };
+
+window.myWcAttach = async () => {
+    if (!myWcCapturedBlob) return;
+    
+    let myFinalBlob = myWcCapturedBlob;
+    let myExt = 'webm';
+    
+    if (myWcMode === 'photo') {
+        myExt = 'jpg';
+    } else if (myWcMode === 'video') {
+        myExt = 'webm';
+    } else if (myWcMode === 'audio') {
+        myExt = 'wav';
+        document.getElementById('myWcStatus').textContent = 'Processing and resampling audio to 16kHz PCM...';
+        myFinalBlob = await myProcessAudioToWav(myWcCapturedBlob);
+    }
+    
+    const myTs = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const myName = `webcam-${myWcMode}-${myTs}.${myExt}`;
+    const myFile = new File([myFinalBlob], myName, { type: myFinalBlob.type });
+    
+    await myLoadFile(myFile);
+    myRenderTray();
+    window.myCloseWebcam();
+};
+
+
+// Decodes webm/mp3 audio, resamples to 16kHz, downmixes to mono, and outputs a clean WAV Blob
+async function myProcessAudioToWav(myInputBlob) {
+    const myAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    const myBuffer = await myInputBlob.arrayBuffer();
+    
+    // Decode the compressed browser audio data
+    const myAudioBuffer = await myAudioCtx.decodeAudioData(myBuffer);
+    let mySamples = myAudioBuffer.getChannelData(0);
+    
+    // Downmix to Mono if stereo
+    if (myAudioBuffer.numberOfChannels > 1) {
+        const myChan1 = myAudioBuffer.getChannelData(0);
+        const myChan2 = myAudioBuffer.getChannelData(1);
+        mySamples = new Float32Array(myChan1.length);
+        for (let myI = 0; myI < myChan1.length; myI++) {
+            mySamples[myI] = (myChan1[myI] + myChan2[myI]) / 2;
+        }
+    }
+    
+    // Encode raw float32 samples into a standard 16-bit PCM WAV ArrayBuffer
+    const myWavBuffer = myCreateWavBuffer(mySamples, 16000);
+    myAudioCtx.close();
+    return new Blob([myWavBuffer], { type: 'audio/wav' });
+}
+
+// Generates the explicit 44-byte RIFF WAVE header for 16kHz Mono 16-bit PCM
+function myCreateWavBuffer(mySamples, mySampleRate) {
+    const myBuffer = new ArrayBuffer(44 + mySamples.length * 2);
+    const myView = new DataView(myBuffer);
+    
+    myWriteStringToView(myView, 0, 'RIFF');
+    myView.setUint32(4, 36 + mySamples.length * 2, true);
+    myWriteStringToView(myView, 8, 'WAVE');
+    myWriteStringToView(myView, 12, 'fmt ');
+    myView.setUint32(16, 16, true);
+    myView.setUint16(20, 1, true); // Linear PCM
+    myView.setUint16(22, 1, true); // Mono channel
+    myView.setUint32(24, mySampleRate, true);
+    myView.setUint32(28, mySampleRate * 2, true); // Byte rate
+    myView.setUint16(32, 2, true); // Block align
+    myView.setUint16(34, 16, true); // Bits per sample
+    myWriteStringToView(myView, 36, 'data');
+    myView.setUint32(40, mySamples.length * 2, true);
+    
+    let myOffset = 44;
+    for (let myI = 0; myI < mySamples.length; myI++, myOffset += 2) {
+        let myS = Math.max(-1, Math.min(1, mySamples[myI]));
+        myView.setInt16(myOffset, myS < 0 ? myS * 0x8000 : myS * 0x7FFF, true);
+    }
+    return myBuffer;
+}
+
+function myWriteStringToView(myView, myOffset, myString) {
+    for (let myI = 0; myI < myString.length; myI++) {
+        myView.setUint8(myOffset + myI, myString.charCodeAt(myI));
+    }
+}
+
+
+
+
+    // ── Init ──────────────────────────────────────────────────────────
+    myLoadConfig();
+    window.myCheckOllamaStatus();
+    document.getElementById('myUserInput').focus();
+    // Show current page origin in step 2b — null for plain file, real chrome-extension:// ID when PWA
+    document.getElementById('myPageOrigin').textContent = location.origin;
+</script>
+</body>
+</html>
