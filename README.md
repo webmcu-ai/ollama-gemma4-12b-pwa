@@ -11,7 +11,7 @@ After ollama is installed you need to open a command window and on windows type
 setx OLLAMA_ORIGINS "https://webmcu-ai.github.io"
 ```
 
-AND THEN REBOOT THE COMPUTER!
+AND THEN REBOOT THE COMPUTER and then wait for Ollama to show in the system tray, then load the installed PWA.
 
 On Linux or MacOS the command should be
 
