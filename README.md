@@ -2,6 +2,9 @@
 ollama installed then this pwa installed then setx so they can chat. local 12B LLM in the browser. Warning a ~7 GB download. This model is not fast unless your computer is amazing, but it is very capable and has a 256 K token window.
 
 
+<img width="226" height="179" alt="image" src="https://github.com/user-attachments/assets/65805b13-90d5-48c7-a8c8-4a14931c127e" />
+
+
 Installable PWA at https://webmcu-ai.github.io/ollama-gemma4-12b-pwa/index.html
 
 
