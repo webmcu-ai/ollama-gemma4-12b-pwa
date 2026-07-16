@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+
+
+
+
 
 
 
@@ -27,8 +32,16 @@
 
 
 
-    
-    <title>Ollama Local AI — Web Interface</title>
+
+
+
+
+
+
+
+
+
+<title>Ollama Local AI — Web Interface</title>
     <script async src="https://cdn.jsdelivr.net/npm/mathjax@4.0.0-alpha.1/es5/tex-mml-chtml.js"></script>
     <style>
         :root {
@@ -508,7 +521,7 @@
 <div class="my-header">
     <div class="my-header-title">
         <h1>ollama-web</h1>
-        <span>local · multimodal · v20</span>
+        <span>local · multimodal · v10</span>
     </div>
     <div class="my-status-pill" onclick="window.myCheckOllamaStatus()" title="Click to recheck Ollama connection">
         <div class="my-status-dot checking" id="myStatusDot"></div>
@@ -537,44 +550,33 @@
             <div class="my-setup-step">
                 <div class="my-step-num">2</div>
                 <div class="my-step-text">
-                    Allow browser access. On <strong>Windows</strong>, open a command prompt and run:
+                    Allow browser access. Once Ollama is installed, open a command window.<br><br>
+                    On <strong>Windows</strong>, run:
                     <div class="my-code-block">
-                        <span>setx OLLAMA_ORIGINS "null"</span>
-                        <button class="my-copy-cmd-btn" onclick="window.myCopySetupCmd(this, 'setx OLLAMA_ORIGINS &quot;null&quot;')">copy</button>
+                        <span>setx OLLAMA_ORIGINS "https://webmcu-ai.github.io"</span>
+                        <button class="my-copy-cmd-btn" onclick="window.myCopySetupCmd(this, 'setx OLLAMA_ORIGINS &quot;https://webmcu-ai.github.io&quot;')">copy</button>
                     </div>
-                    This is the safest setting — it allows this local HTML file to reach Ollama but blocks all internet pages from doing so.
-                    On Mac/Linux, add <code style="color:var(--accent-green)">OLLAMA_ORIGINS="null"</code> to your shell profile instead.
-                </div>
-            </div>
-            <div class="my-setup-step">
-                <div class="my-step-num" style="background:var(--accent-purple);">2b</div>
-                <div class="my-step-text">
-                    <strong style="color:var(--accent-purple);">If you install this page as a Chrome PWA</strong> (three-dot menu → Install), do this extra step — skip it if you are using the plain HTML file only.<br><br>
-                    After installing the PWA, open it, then open DevTools (<code style="color:var(--accent-green)">F12</code>) → Console tab → type <code style="color:var(--accent-green)">location.origin</code> and press Enter.
-                    You will see a string like <code style="color:var(--accent-purple)">chrome-extension://abcdef1234...</code> — copy that full value.<br><br>
-                    Then run this in a command prompt, replacing the example ID with your real one:
-                    <div class="my-code-block" style="flex-wrap:wrap; gap:4px;">
-                        <span style="word-break:break-all;">setx OLLAMA_ORIGINS "null chrome-extension://YOUR-ID-HERE"</span>
-                        <button class="my-copy-cmd-btn" onclick="window.myCopySetupCmd(this, 'setx OLLAMA_ORIGINS &quot;null chrome-extension://YOUR-ID-HERE&quot;')">copy</button>
+                    On <strong>Mac/Linux</strong>, run:
+                    <div class="my-code-block">
+                        <span>export OLLAMA_ORIGINS="https://webmcu-ai.github.io"</span>
+                        <button class="my-copy-cmd-btn" onclick="window.myCopySetupCmd(this, 'export OLLAMA_ORIGINS=&quot;https://webmcu-ai.github.io&quot;')">copy</button>
                     </div>
                     <span style="color:var(--text-muted); font-size:0.75rem;">
-                        Note: this page cannot read its own PWA origin automatically until it is running as an installed PWA —
-                        the value shown below will say <em>null</em> while you are using the plain HTML file, which is correct.
-                        Once installed as a PWA the real ID will appear and you can copy it from here instead of DevTools.<br>
-                        Your current page origin: <strong id="myPageOrigin" style="color:var(--accent-purple);">—</strong>
-                        <button class="my-copy-cmd-btn" style="margin-left:8px;" onclick="window.myCopySetupCmd(this, document.getElementById('myPageOrigin').textContent)">copy</button>
+                        Note: this address points to the <strong>webmcu-ai</strong> GitHub organization. If you are hosting this page from your own GitHub account or organization instead, replace <code style="color:var(--accent-green)">https://webmcu-ai.github.io</code> with your own GitHub Pages address before running the command.
                     </span>
                 </div>
             </div>
             <div class="my-setup-step">
                 <div class="my-step-num">3</div>
                 <div class="my-step-text">
-                    <strong style="color: var(--accent-orange);">Reboot your computer.</strong> The environment variable does not take effect until after a full restart.
+                    <strong style="color: var(--accent-orange);">Windows only: reboot your computer.</strong> The environment variable does not take effect until after a full restart. (Mac/Linux: the <code style="color:var(--accent-green)">export</code> command takes effect in that terminal session right away — no reboot needed.)
                 </div>
             </div>
             <div class="my-setup-step">
                 <div class="my-step-num">4</div>
-                <div class="my-step-text">Start Ollama (system tray on Windows). Return here — the status pill top-right will turn green when connected.</div>
+                <div class="my-step-text">
+                    After rebooting, wait for Ollama to start and show its icon in the system tray (Windows) or menu bar (Mac). Then load the installed PWA. Return here — the status pill top-right will turn green when connected.
+                </div>
             </div>
             <div class="my-setup-step">
                 <div class="my-step-num">5</div>
@@ -584,7 +586,7 @@
                         <span>ollama pull gemma4:12b</span>
                         <button class="my-copy-cmd-btn" onclick="window.myCopySetupCmd(this, 'ollama pull gemma4:12b')">copy</button>
                     </div>
-                    Note: Ollama model tags use size shorthand — <code style="color:var(--accent-green)">gemma4:2b</code>, <code style="color:var(--accent-green)">gemma4:12b</code> (not e2b/e4b).
+                    Note: Ollama model tags use size shorthand — <code style="color:var(--accent-green)">gemma4:e2b</code>, <code style="color:var(--accent-green)">gemma4:12b</code>.
                 </div>
             </div>
         </div>
@@ -1624,7 +1626,7 @@ const { finalPrompt, images } = await myBuildOllamaPayload(
                     <div class="my-msg-text" style="color:var(--accent-red)">
                     Could not reach Ollama: ${myEscapeHtml(myErr.message)}<br><br>
                     • Is Ollama running?<br>
-                    • Was <code>setx OLLAMA_ORIGINS "null"</code> run and the computer rebooted?<br>
+                    • Was <code>OLLAMA_ORIGINS</code> set to this page's GitHub Pages address (Windows: rebooted after)?<br>
                     • Is the model name correct?<br>
                     </div>`;
                 myConversationHistory.pop();
@@ -1953,8 +1955,6 @@ function myWriteStringToView(myView, myOffset, myString) {
     myLoadConfig();
     window.myCheckOllamaStatus();
     document.getElementById('myUserInput').focus();
-    // Show current page origin in step 2b — null for plain file, real chrome-extension:// ID when PWA
-    document.getElementById('myPageOrigin').textContent = location.origin;
 </script>
 </body>
 </html>
